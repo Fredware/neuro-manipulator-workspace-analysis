@@ -1,0 +1,25 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build and distro
+build/
+dist/
+wheels/
+*.egg-info
+
+# Robotics/Sim
+*.log
+*.out
+results/
+data/raw/
+
+# Virtual environments
+.venv/
+.uv/
+
+# IDEs
+.idea/
+.vscode/
+
