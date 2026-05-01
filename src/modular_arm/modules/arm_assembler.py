@@ -95,7 +95,7 @@ class ArmAssembler:
             ET.SubElement(current_body, "geom",
                           name=f"{module.name}_link ",
                           type="capsule",
-                          fromto=f"0 0 0 0 0 {link_length}",
+                          fromto=f"0 0 0 {link_length} 0 0", # Change from 0 0 link_length to link_length 0 0
                           size="0.025",
                           rgba="0.5 0.5 0.5 1")
 
@@ -103,16 +103,27 @@ class ArmAssembler:
             if module.is_actuated:
                 actuators.append(module.name)
 
-            # 5. Prepare for next iter. create a child body for the NEXT module at the end of THIS link
-            if i < len(self.modules)-1:
-                # use attachment point in module if available
-                attach_pos = module.r_attach if np.any(module.r_attach) else np.array([0, 0, link_length])
+            # # 5. Prepare for next iter. create a child body for the NEXT module at the end of THIS link
+            # if i < len(self.modules)-1:
+            #     # use attachment point in module if available
+            #     attach_pos = module.r_attach if np.any(module.r_attach) else np.array([0, 0, link_length])
+            #     last_parent = ET.SubElement(current_body, "body",
+            #                                    name = f"mount_{i}",
+            #                                    pos=self._array_to_str(attach_pos))
+            # else:
+            #     # At end-effector at the tip of the last link
+            #     ET.SubElement(current_body, "site", name="ee_site", pos=f"0 0 {link_length}",  size="0.01")
+
+            # 5. Prepare for next iter
+            if i < len(self.modules) - 1:
+                # Change default attachment from Z to X
+                attach_pos = module.r_attach if np.any(module.r_attach) else np.array([link_length, 0, 0])
                 last_parent = ET.SubElement(current_body, "body",
-                                               name = f"mount_{i}",
-                                               pos=self._array_to_str(attach_pos))
+                                            name=f"mount_{i}",
+                                            pos=self._array_to_str(attach_pos))
             else:
-                # At end-effector at the tip of the last link
-                ET.SubElement(current_body, "site", name="ee_site", pos=f"0 0 {link_length}",  size="0.01")
+                # Update end-effector site to the tip on the X-axis
+                ET.SubElement(current_body, "site", name="ee_site", pos=f"{link_length} 0 0", size="0.01")
 
         # --- Actuators ---
         # Use 'motor' for torque-control matching the get_control_output  logic
