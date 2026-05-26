@@ -114,7 +114,12 @@ class SEAModule:
 
         # PD Impedance Control Law
         tau_impedance = (self.k_virtual * (q_target - q_current)) - (self.d_virtual * q_vel)
-        tau_cmd = tau_impedance + g_comp
+
+        # New: Spring Feed-forward compensation
+        # We know the physical spring will resist by (k_s * q_current)
+        # We cancel it out so the impedance controller only deals with the task.
+        tau_feedforward = self.k_s * q_current
+        tau_cmd = tau_impedance + g_comp + tau_feedforward
 
         return tau_cmd, f_total, tau_total
 

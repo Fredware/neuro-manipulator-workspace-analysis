@@ -23,3 +23,5 @@ data/raw/
 .idea/
 .vscode/
 
+data/monte_carlo_results.csv
+data/*.csv
