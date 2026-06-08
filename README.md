@@ -28,3 +28,10 @@
     ```{bash}
     uv run python -m src.modular_arm.analysis.visualize_envelope
     ```
+6. Generate and visualize envelopes from motion tracking (kinematic) data
+   
+   ```{bash}
+   uv run python -m src.modular_arm.analysis.adl_envelope_generator
+   uv run python -m src.modular_arm.analysis.plot_adl_hulls_3d
+   ```
+
