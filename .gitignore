@@ -26,3 +26,4 @@ data/raw/
 data/monte_carlo_results.csv
 data/*.csv
 data/*.csv
+data/
