@@ -1,0 +1,12 @@
+adl_envelope_pipeline:
+  adl_csv_path: "./data/kinematic-emg-adl-dataset/clean_adl_kinematics.csv"
+  zone_mappings:
+    zone_a:
+      - "HM" # Hand to Mouth. Subject brings their hand to their mouth. Assesses Gross UL movement, hand-eye coordination essential for eating and grooming
+      - "HH" # Hand to Head. Subject brings their hand to their head moving hand through hair. Assesses Gross UL movement and hand-eye coordination.
+    zone_b:
+      - "BA" # Grasp 5 cm  Ball. Subject reaches, grasps and places a 5 cm ball on an elevated surface. Assesses Grip strength crucial for grasping daily objects
+      - "BC" # Grasp 5 cm^3 Block. Subject reaches grasps and places block on an elevated surface. Assesses Fine motor skills, arm coordination, hand dexterity, important for manipulating small objects
+      - "SC" # Grasp 2.5 cm^3 Block. Same as BC
+    zone_c:
+      - "PS" # Prono-supination: Subject grasps an iron tube, rotates it by performing forearm supination, and returns it to its original position via forearm pronation. Assesses wrist rotation
