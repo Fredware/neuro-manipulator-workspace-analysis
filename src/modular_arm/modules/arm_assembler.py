@@ -85,7 +85,7 @@ class ArmAssembler:
                 "damping": str(module.c_s),
             }
             # Apply range if defined
-            if hasattr(module, "joint_range_rad") and module.joint_range_rad is not None:
+            if hasattr(module, "joint_range") and module.joint_range is not None:
                 low, high = np.rad2deg(module.joint_range_rad) # MuJoCo XML expects degrees if compiler angle="degree"
                 joint_kwargs["range"] = f"{low}-{high}"
 
