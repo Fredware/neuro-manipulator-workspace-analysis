@@ -58,6 +58,7 @@ class SEAModule:
 
         self.child: Optional["SEAModule"] = None
         self.r_attach: npt.NDArray[np.float64] = np.zeros(3)
+        self.link_direction = np.array([1, 0, 0])
 
     def set_child(self, child_module: "SEAModule", attach_point: npt.NDArray[np.float64]) -> None:
         """
