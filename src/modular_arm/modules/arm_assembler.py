@@ -100,12 +100,15 @@ class ArmAssembler:
                           diaginertia="0.01 0.01 0.01") # TODO:@FRM figure out how to estimate inertias
 
             # 4. define Link Geometry
-            # Assume link extends along z-axis of local body frame
+            # Dynamically project capsule geometry based on custom link directions
+            dir_vec = getattr(module, "link_direction", np.array([1, 0, 0]))
+            end_point = dir_vec * link_length
+            fromto_str = f"0 0 0 {end_point[0]} {end_point[1]} {end_point[2]}"
             ET.SubElement(current_body, "geom",
                           name=f"{module.name}_link ",
                           type="capsule",
-                          fromto=f"0 0 0 {link_length} 0 0", # Change from 0 0 link_length to link_length 0 0
-                          size="0.025",
+                          fromto=fromto_str,
+                          size="0.025" if "dof1" not in module.name else "0.033",
                           rgba="0.5 0.5 0.5 1")
 
             # Store actuator info if applicable
