@@ -75,12 +75,21 @@ class ArmAssembler:
 
             # 2. add joint
             joint_type = "slide" if module.is_prismatic else "hinge"
-            ET.SubElement(current_body, "joint",
-                          name=f"{module.name}_joint",
-                          type=joint_type,
-                          axis=self._array_to_str(module.axis),
-                          stiffness = str(module.k_s),
-                          damping = str(module.c_s))
+
+            # Pull limits from module if they exist, default to none
+            joint_kwargs = {
+                "name": f"{module.name}_joint",
+                "type": joint_type,
+                "axis": self._array_to_str(module.axis),
+                "stiffness": str(module.k_s),
+                "damping": str(module.c_s),
+            }
+            # Apply range if defined
+            if hasattr(module, "joint_range_rad") and module.joint_range_rad is not None:
+                low, high = np.rad2deg(module.joint_range_rad) # MuJoCo XML expects degrees if compiler angle="degree"
+                joint_kwargs["range"] = f"{low}-{high}"
+
+            ET.SubElement(current_body, "joint", **joint_kwargs)
 
             # 3. define Inertial Physics
             # add small diaginertia to prevent mjMINVAL error

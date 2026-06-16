@@ -54,6 +54,7 @@ class SEAModule:
 
         self.is_actuated = is_actuated
         self.is_prismatic = is_prismatic
+        self.joint_range_rad = None
 
         self.child: Optional["SEAModule"] = None
         self.r_attach: npt.NDArray[np.float64] = np.zeros(3)
