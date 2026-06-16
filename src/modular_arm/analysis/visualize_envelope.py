@@ -228,4 +228,5 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
 
 
 if __name__ == "__main__":
-    visualize_workspace("monte_carlo_results.csv")
+    # visualize_workspace("monte_carlo_results.csv")
+    visualize_workspace("workspace_envelope.csv")

@@ -24,23 +24,23 @@ def get_robot_config():
 
     # --- Physical SEA Module Definition ---
     # DOF 1: Base Rotary (Axis Z, Points UP)
-    m1 = SEAModule("dof1_rot_z", mass=1.5, com=np.array([0, 0, m_lengths["dof1_height"]/2]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=60.0, d_virtual=5.0)
+    m1 = SEAModule("dof1_rot_z", mass=1.5, com=np.array([0, 0, m_lengths["dof1_height"]/2]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=200.0, d_virtual=20.0)
     m1.link_direction = np.array([0, 0, 1]) # Extend up
-    m1.joint_range_rad = np.deg2rad([0, 360])
+    m1.joint_range = np.deg2rad([0, 360])
 
     # DOF 2: Passive Prismatic (Axis Z, Sliding Inside Cylinder)
-    m2 = SEAModule("dof2_slide_z", mass = 0.8, com=np.array([0, 0, 0]), axis=np.array([0, 0, 1]), is_prismatic=True)
+    m2 = SEAModule("dof2_slide_z", mass = 0.8, com=np.array([0, 0, 0]), axis=np.array([0, 0, 1]), is_prismatic=True, is_actuated=False)
     m2.link_direction = np.array([0, 0, 0]) # Internal joint, no extra structural mesh length
     m2.joint_range = np.array([0, m_lengths["dof2_slide_range"]])
     m2.r_attach = np.array([0, 0, m_lengths["dof2_start_height"]])
 
    # DOF 3: First Forward Bend (Axis Z, Link points along X)
-    m3 = SEAModule("dof3_bend_z", mass=1.1, com=np.array([m_lengths["dof3_length"]/2, 0, 0]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=60.0, d_virtual=5.0)
+    m3 = SEAModule("dof3_bend_z", mass=1.1, com=np.array([m_lengths["dof3_length"]/2, 0, 0]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=200.0, d_virtual=20.0)
     m3.link_direction = np.array([1, 0, 0]) # Extend forward
     m3.joint_range = np.deg2rad([30, 150])
 
     # DOF 4: Second Forward Bend (Axis Z, Link points along X)
-    m4 = SEAModule("dof4_bend_z", mass=0.9, com=np.array([m_lengths["dof4_length"]/2, 0, 0]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=60.0, d_virtual=5.0)
+    m4 = SEAModule("dof4_bend_z", mass=0.9, com=np.array([m_lengths["dof4_length"]/2, 0, 0]), axis=np.array([0, 0, 1]), k_spring=150, k_virtual=100.0, d_virtual=10.0)
     m4.link_direction = np.array([1, 0, 0])
     m4.joint_range = np.deg2rad([30, 150])
 

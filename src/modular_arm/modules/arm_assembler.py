@@ -45,7 +45,7 @@ class ArmAssembler:
 
         # --- Global settings ---
         ET.SubElement(root, "compiler", angle="degree", coordinate="local", autolimits="true")
-        option = ET.SubElement(root, "option", integrator="RK4", timestep="0.002")
+        option = ET.SubElement(root, "option", integrator="RK4", timestep="0.0005")
         ET.SubElement(option, "flag", energy="enable")
 
         # --- Assets and Visuals ---
@@ -84,10 +84,17 @@ class ArmAssembler:
                 "stiffness": str(module.k_s),
                 "damping": str(module.c_s),
             }
-            # Apply range if defined
+            # Apply range if defined based on joint type
             if hasattr(module, "joint_range") and module.joint_range is not None:
-                low, high = np.rad2deg(module.joint_range_rad) # MuJoCo XML expects degrees if compiler angle="degree"
-                joint_kwargs["range"] = f"{low}-{high}"
+                if module.is_prismatic:
+                    # Prismatic/Slide joints: limits are strictly in meters (no conversion)
+                    low = module.joint_range[0]
+                    high = module.joint_range[1]
+                else:
+                    low = np.rad2deg(module.joint_range[0])
+                    high = np.rad2deg(module.joint_range[1])
+
+                joint_kwargs["range"] = f"{low:.6f} {high:.6f}"
 
             ET.SubElement(current_body, "joint", **joint_kwargs)
 
@@ -101,15 +108,17 @@ class ArmAssembler:
 
             # 4. define Link Geometry
             # Dynamically project capsule geometry based on custom link directions
-            dir_vec = getattr(module, "link_direction", np.array([1, 0, 0]))
-            end_point = dir_vec * link_length
-            fromto_str = f"0 0 0 {end_point[0]} {end_point[1]} {end_point[2]}"
-            ET.SubElement(current_body, "geom",
-                          name=f"{module.name}_link ",
-                          type="capsule",
-                          fromto=fromto_str,
-                          size="0.025" if "dof1" not in module.name else "0.033",
-                          rgba="0.5 0.5 0.5 1")
+            # Only generate a capsule mesh if the link has a physical structural length
+            if link_length > 0:
+                dir_vec = getattr(module, "link_direction", np.array([1, 0, 0]))
+                end_point = dir_vec * link_length
+                fromto_str = f"0 0 0 {end_point[0]} {end_point[1]} {end_point[2]}"
+                ET.SubElement(current_body, "geom",
+                              name=f"{module.name}_link ",
+                              type="capsule",
+                              fromto=fromto_str,
+                              size="0.025" if "dof1" not in module.name else "0.033",
+                              rgba="0.5 0.5 0.5 1")
 
             # Store actuator info if applicable
             if module.is_actuated:
