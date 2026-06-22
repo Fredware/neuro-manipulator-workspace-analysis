@@ -45,7 +45,7 @@ class ArmAssembler:
 
         # --- Global settings ---
         ET.SubElement(root, "compiler", angle="degree", coordinate="local", autolimits="true")
-        option = ET.SubElement(root, "option", integrator="RK4", timestep="0.002")
+        option = ET.SubElement(root, "option", integrator="RK4", timestep="0.0005")
         ET.SubElement(option, "flag", energy="enable")
 
         # --- Assets and Visuals ---
@@ -75,12 +75,28 @@ class ArmAssembler:
 
             # 2. add joint
             joint_type = "slide" if module.is_prismatic else "hinge"
-            ET.SubElement(current_body, "joint",
-                          name=f"{module.name}_joint",
-                          type=joint_type,
-                          axis=self._array_to_str(module.axis),
-                          stiffness = str(module.k_s),
-                          damping = str(module.c_s))
+
+            # Pull limits from module if they exist, default to none
+            joint_kwargs = {
+                "name": f"{module.name}_joint",
+                "type": joint_type,
+                "axis": self._array_to_str(module.axis),
+                "stiffness": str(module.k_s),
+                "damping": str(module.c_s),
+            }
+            # Apply range if defined based on joint type
+            if hasattr(module, "joint_range") and module.joint_range is not None:
+                if module.is_prismatic:
+                    # Prismatic/Slide joints: limits are strictly in meters (no conversion)
+                    low = module.joint_range[0]
+                    high = module.joint_range[1]
+                else:
+                    low = np.rad2deg(module.joint_range[0])
+                    high = np.rad2deg(module.joint_range[1])
+
+                joint_kwargs["range"] = f"{low:.6f} {high:.6f}"
+
+            ET.SubElement(current_body, "joint", **joint_kwargs)
 
             # 3. define Inertial Physics
             # add small diaginertia to prevent mjMINVAL error
@@ -91,13 +107,18 @@ class ArmAssembler:
                           diaginertia="0.01 0.01 0.01") # TODO:@FRM figure out how to estimate inertias
 
             # 4. define Link Geometry
-            # Assume link extends along z-axis of local body frame
-            ET.SubElement(current_body, "geom",
-                          name=f"{module.name}_link ",
-                          type="capsule",
-                          fromto=f"0 0 0 {link_length} 0 0", # Change from 0 0 link_length to link_length 0 0
-                          size="0.025",
-                          rgba="0.5 0.5 0.5 1")
+            # Dynamically project capsule geometry based on custom link directions
+            # Only generate a capsule mesh if the link has a physical structural length
+            if link_length > 0:
+                dir_vec = getattr(module, "link_direction", np.array([1, 0, 0]))
+                end_point = dir_vec * link_length
+                fromto_str = f"0 0 0 {end_point[0]} {end_point[1]} {end_point[2]}"
+                ET.SubElement(current_body, "geom",
+                              name=f"{module.name}_link ",
+                              type="capsule",
+                              fromto=fromto_str,
+                              size="0.025" if "dof1" not in module.name else "0.033",
+                              rgba="0.5 0.5 0.5 1")
 
             # Store actuator info if applicable
             if module.is_actuated:

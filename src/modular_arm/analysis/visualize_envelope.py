@@ -1,10 +1,9 @@
 import polars as pl
 import matplotlib.pyplot as plt
-import mujoco
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import os
-
+import mujoco
 from modular_arm.core.robot_config import get_robot_config
 
 
@@ -15,7 +14,7 @@ def draw_sphere(ax, center, radius, color, alpha=0.25):
     x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
     y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
     z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
-    ax.plot_surface(x, y, z, color=color, alpha=alpha, edgecolor=None)
+    ax.plot_surface(x, y, z, color=color, alpha=alpha, edgecolor='none')
 
 
 def draw_robot_base(ax, origin, axis_length=0.2):
@@ -25,121 +24,68 @@ def draw_robot_base(ax, origin, axis_length=0.2):
     # Draw Origin Point
     ax.scatter([ox], [oy], [oz], color='black', s=50, marker='o', label="Robot Base")
 
-    # X-Axis (Red)
+    # X-Axis (Red) - Forward
     ax.quiver(ox, oy, oz, axis_length, 0, 0, color='red', arrow_length_ratio=0.15, linewidth=2)
     ax.text(ox + axis_length * 1.1, oy, oz, 'X+', color='red', fontweight='bold')
 
-    # Y-Axis (Green)
+    # Y-Axis (Green) - Left
     ax.quiver(ox, oy, oz, 0, axis_length, 0, color='green', arrow_length_ratio=0.15, linewidth=2)
     ax.text(ox, oy + axis_length * 1.1, oz, 'Y+', color='green', fontweight='bold')
 
-    # Z-Axis (Blue)
+    # Z-Axis (Blue) - Up
     ax.quiver(ox, oy, oz, 0, 0, axis_length, color='blue', arrow_length_ratio=0.15, linewidth=2)
     ax.text(ox, oy, oz + axis_length * 1.1, 'Z+', color='blue', fontweight='bold')
 
 
-def draw_manipulability_field(ax, df, model, data, ee_site_id, num_samples=15):
-    """
-    Samples configurations and draws the principal axes of motion (Manipulability Field).
-    """
-    print(f"Calculating Jacobian field for {num_samples} samples...")
+def draw_robot_wireframe(ax, model, data, qpos=None):
+    """Draws a wireframe of the robot in a specific configuration."""
+    if qpos is not None:
+        data.qpos[:] = qpos
+    mujoco.mj_kinematics(model, data)
 
-    # 1. Randomly sample N configurations from the Monte Carlo results
-    sampled_df = df.sample(n=num_samples)
+    # Draw links by connecting parent and child body positions
+    for i in range(1, model.nbody):
+        parent_id = model.body_parentid[i]
+        p1 = data.xpos[parent_id]
+        p2 = data.xpos[i]
 
-    # Pre-allocate Jacobian array (3 translation DOFs x N joints)
-    jacp = np.zeros((3, model.nv))
+        # Draw Link
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], color='black', linewidth=4, alpha=0.8)
+        # Draw Joint/Body Node
+        ax.scatter(p2[0], p2[1], p2[2], color='darkorange', s=40, zorder=5, edgecolor='black')
 
-    for row in sampled_df.iter_rows(named=True):
-        # 2. Set the MuJoCo state to this specific configuration
-        data.qpos[0] = row["q1"]
-        data.qpos[1] = row["q2"]
-        mujoco.mj_kinematics(model, data)  # Update global positions
-        mujoco.mj_comPos(model, data)  # Update Center of Mass
+    # Draw end-effector site if it exists
+    ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "ee_site")
+    if ee_id != -1:
+        ee_pos = data.site_xpos[ee_id]
+        parent_body = model.site_bodyid[ee_id]
+        p1 = data.xpos[parent_body]
+        ax.plot([p1[0], ee_pos[0]], [p1[1], ee_pos[1]], [p1[2], ee_pos[2]], color='gray', linewidth=3, linestyle='--')
+        ax.scatter(ee_pos[0], ee_pos[1], ee_pos[2], color='red', marker='X', s=100, zorder=6, label="End Effector")
 
-        # 3. Calculate the Translation Jacobian for the End-Effector
-        mujoco.mj_jacSite(model, data, jacp, None, ee_site_id)
 
-        # 4. Perform SVD to get the principal directions of motion
-        U, S, Vh = np.linalg.svd(jacp)
-
-        # Base position of the arrow
-        x, y, z = row["x"], row["y"], row["z"]
-
-        # 5. Draw the principal axes (using the first 2 singular values for a 2-DOF arm)
-        # S[0] is the primary direction of motion, S[1] is the secondary
-        for i in range(len(S)):
-            if S[i] < 1e-4:  # Ignore singular directions (dead zones)
-                continue
-
-            # U[:, i] is the 3D direction vector. S[i] is the magnitude.
-            direction = U[:, i] * S[i] * 0.5  # Scale by 0.5 for visual appeal
-
-            dx, dy, dz = direction[0], direction[1], direction[2]
-
-            # Color code: Primary axis (easiest movement) = Blue, Secondary = Orange
-            color = 'blue' if i == 0 else 'orange'
-            linewidth = 3 if i == 0 else 1.5
-
-            # Plot the arrow (both positive and negative to show bidirectional capability)
-            ax.quiver(x, y, z, dx, dy, dz, color=color, linewidth=linewidth, arrow_length_ratio=0.2)
-            ax.quiver(x, y, z, -dx, -dy, -dz, color=color, linewidth=linewidth, arrow_length_ratio=0.0)
-
-            # Plot a small black dot at the center for clarity
-            ax.scatter(x, y, z, color='black', s=10)
-
-def draw_orientation_field(ax, df, model, data, ee_site_id, num_samples=25):
-    """
-    Samples configurations and draws a fixed-length arrow representing
-    the hand/tool orientation (Orientation Workspace).
-    """
-    print(f"Calculating Orientation field for {num_samples} samples...")
-
-    # 1. Randomly sample N configurations
-    sampled_df = df.sample(n=num_samples)
-
-    # Define a fixed, small length for the arrows (e.g., 5 cm)
-    ARROW_LENGTH = 0.05
-
-    for row in sampled_df.iter_rows(named=True):
-        # 2. Set the MuJoCo state to this specific configuration
-        data.qpos[0] = row["q1"]
-        data.qpos[1] = row["q2"]
-        mujoco.mj_kinematics(model, data)
-
-        # 3. Get the Rotation Matrix of the End-Effector Site
-        # MuJoCo exposes this as a flattened 9-element array, so we reshape it
-        rot_mat = data.site_xmat[ee_site_id].reshape(3, 3)
-
-        # 4. Extract the pointing vector.
-        # By default in MuJoCo, sites point along their local Z-axis.
-        # If your "flashlight" points along X, use rot_mat[:, 0] instead.
-        pointing_vector = rot_mat[:, 2]
-
-        dx, dy, dz = pointing_vector[0], pointing_vector[1], pointing_vector[2]
-        x, y, z = row["x"], row["y"], row["z"]
-
-        # 5. Draw a single, clean arrow pivoting from the tail
-        ax.quiver(x, y, z, dx, dy, dz,
-                  length=ARROW_LENGTH,
-                  normalize=True,  # Ensures it stays exactly ARROW_LENGTH
-                  pivot='tail',  # Arrow starts exactly at x,y,z
-                  color='purple',
-                  linewidth=2,
-                  arrow_length_ratio=0.3)
-
-        # Draw the physical (x,y,z) coordinate as a dot
-        ax.scatter(x, y, z, color='black', s=15, zorder=5)
-
-def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0.5]):
+def visualize_workspace(file_name="monte_carlo_results_6dof.csv", robot_base=[0, 0, 0]):
     file_path = os.path.join("data", file_name)
     if not os.path.exists(file_path):
-        print(f"Error: {file_path} not found.")
+        print(f"Error: {file_path} not found. Run the Monte Carlo simulation first!")
         return
     df = pl.read_csv(file_path)
 
-    # --- Define ADL Zone A (Personal Care) ---
-    zone_a = {'x': [0.1, 0.4], 'y': [-0.2, 0.2], 'z': [0.4, 0.6]}
+    # --- REFERENCE FRAME TRANSLATION ---
+    # Where is the human's sternum (0,0,0 for ADLs) relative to the robot base?
+    # Example: Human sits 15cm behind (X), 30cm to the left (Y), and 40cm higher (Z) than the robot base.
+    human_origin = np.array([-0.15, 0.30, 0.40])
+
+    # --- Define ADL Zone A (Personal Care) in Human Frame ---
+    # These are the raw empirical bounds from your .mat file analysis relative to the sternum
+    zone_a_human_frame = {'x': [0.0, 0.25], 'y': [-0.2, 0.2], 'z': [0.0, 0.35]}
+
+    # Translate the Zone into the Robot's Coordinate Frame
+    zone_a = {
+        'x': [zone_a_human_frame['x'][0] + human_origin[0], zone_a_human_frame['x'][1] + human_origin[0]],
+        'y': [zone_a_human_frame['y'][0] + human_origin[1], zone_a_human_frame['y'][1] + human_origin[1]],
+        'z': [zone_a_human_frame['z'][0] + human_origin[2], zone_a_human_frame['z'][1] + human_origin[2]]
+    }
 
     # --- Setup Plot ---
     fig = plt.figure(figsize=(12, 9))
@@ -147,6 +93,27 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
 
     # --- Draw Robot Base Frame ---
     draw_robot_base(ax, robot_base, axis_length=0.15)
+
+    # --- Draw Human Origin (Sternum) ---
+    ax.scatter(*human_origin, color='magenta', s=70, marker='*', label="Human Sternum (ADL Origin)")
+
+    # --- Draw Robot Wireframe (Home Pose) ---
+    try:
+        config = get_robot_config()
+        model = mujoco.MjModel.from_xml_string(config["assembler"].generate_mjcf())
+        data = mujoco.MjData(model)
+
+        # Set a visible "home" pose (slider midway, slight bends)
+        home_qpos = np.zeros(model.nq)
+        if model.nq >= 6:
+            home_qpos[1] = config["slide_range_meters"]  # Set to 100% height
+            home_qpos[2] = np.deg2rad(45)  # Bend 1
+            home_qpos[3] = np.deg2rad(45)  # Bend 2
+            home_qpos[5] = np.deg2rad(45)  # Wrist Bend
+
+        draw_robot_wireframe(ax, model, data, qpos=home_qpos)
+    except Exception as e:
+        print(f"Warning: Could not draw robot wireframe. Make sure robot_config is accessible. Error: {e}")
 
     # --- Draw Zone A box ---
     xb, yb, zb = zone_a['x'], zone_a['y'], zone_a['z']
@@ -166,9 +133,35 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
     )
 
     is_monte_carlo = len(df) > 500
+    has_layers = "layer_label" in df.columns
 
-    if is_monte_carlo:
-        # --- MODE 1: Point Cloud (High-Res) ---
+    if is_monte_carlo and has_layers:
+        # --- MODE 1: Stratified Spatial Point Cloud ---
+        print(f"Rendering Stratified Point Cloud ({len(df)} points)...")
+
+        # Color palette for the 5 layers (Plasma colormap creates nice thermal-like banding)
+        layer_names = ["0%", "25%", "50%", "75%", "100%"]
+        colors = plt.cm.plasma(np.linspace(0, 0.9, len(layer_names)))
+
+        for idx, layer_name in enumerate(layer_names):
+            layer_df = hits.filter(pl.col("layer_label") == layer_name)
+            # Draw the point cloud for this specific height layer
+            ax.scatter(layer_df["x"], layer_df["y"], layer_df["z"],
+                       color=colors[idx], s=2, alpha=0.3, label=f"Slider: {layer_name}")
+
+        # Calculate absolute coverage score
+        in_zone_count = hits.filter(pl.col("in_zone")).height
+        coverage = (in_zone_count / len(df)) * 100
+
+        print(f"--- ADL INTERSECTION SCORE ---")
+        print(f"Total Configurations: {len(df)}")
+        print(f"Zone A Hits: {in_zone_count}")
+        print(f"Coverage Metric: {coverage:.2f}%")
+        ax.set_title(f"6-DOF Stratified Reachability (Zone A Coverage: {coverage:.2f}%)")
+        ax.legend(loc="upper right", title="Passive Slider Height")
+
+    elif is_monte_carlo:
+        # --- MODE 2: Standard Point Cloud (Fallback) ---
         print(f"Rendering Point Cloud ({len(df)} points)...")
         in_zone_df = hits.filter(pl.col("in_zone"))
         out_zone_df = hits.filter(~pl.col("in_zone"))
@@ -177,14 +170,10 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
         ax.scatter(in_zone_df["x"], in_zone_df["y"], in_zone_df["z"], c='limegreen', s=10, alpha=0.8)
 
         coverage = (len(in_zone_df) / len(df)) * 100
-        print(f"--- ADL INTERSECTION SCORE ---")
-        print(f"Total Configurations: {len(df)}")
-        print(f"Zone A Hits: {len(in_zone_df)}")
-        print(f"Coverage Metric: {coverage:.2f}%")
         ax.set_title(f"Monte Carlo Reachability (Zone A Coverage: {coverage:.2f}%)")
 
     else:
-        # --- MODE 2: Voxels (Low-Res) ---
+        # --- MODE 3: Voxels (Low-Res Grid Search) ---
         print(f"Rendering Voxels ({len(df)} points)...")
         VOXEL_RADIUS = 0.05
         for row in hits.iter_rows(named=True):
@@ -193,18 +182,10 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
             draw_sphere(ax, point, VOXEL_RADIUS, color, alpha=0.4)
         ax.set_title("Discrete Workspace Voxelization")
 
-    config = get_robot_config()
-    assembler = config["assembler"]
-    model = mujoco.MjModel.from_xml_string(assembler.generate_mjcf())
-    data = mujoco.MjData(model)
-    ee_site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "ee_site")
-    # draw_manipulability_field(ax, hits, model, data, ee_site_id, num_samples=15)
-    draw_orientation_field(ax, hits, model, data, ee_site_id, num_samples=25)
-
     # --- Plot formatting ---
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('y [m]')
-    ax.set_zlabel('z [m]')
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_zlabel('Z [m]')
     ax.set_box_aspect([1, 1, 1])
 
     # Dynamic scaling including the base position
@@ -223,9 +204,9 @@ def visualize_workspace(file_name="monte_carlo_results.csv", robot_base=[0, 0, 0
     else:
         ax.set_zlim(z_min - buffer, z_max + buffer)
 
-    ax.legend()
     plt.show()
 
 
 if __name__ == "__main__":
-    visualize_workspace("monte_carlo_results.csv")
+    visualize_workspace()
+

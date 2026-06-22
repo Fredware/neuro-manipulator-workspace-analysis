@@ -11,6 +11,7 @@ dependencies = [
     "dm-control>=1.0.38",
     "matplotlib>=3.10.8",
     "mujoco>=3.6.0",
+    "numpy>=2.4.3",
     "polars>=1.39.3",
     "pymatreader>=1.2.3",
     "pyyaml>=6.0.3",
