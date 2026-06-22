@@ -633,6 +633,7 @@ dependencies = [
     { name = "dm-control" },
     { name = "matplotlib" },
     { name = "mujoco" },
+    { name = "numpy" },
     { name = "polars" },
     { name = "structlog" },
 ]
@@ -642,6 +643,7 @@ requires-dist = [
     { name = "dm-control", specifier = ">=1.0.38" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mujoco", specifier = ">=3.6.0" },
+    { name = "numpy", specifier = ">=2.4.3" },
     { name = "polars", specifier = ">=1.39.3" },
     { name = "structlog", specifier = ">=25.5.0" },
 ]
