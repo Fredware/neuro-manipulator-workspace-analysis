@@ -1,0 +1,3 @@
+[submodule "external/ada_assets"]
+	path = external/ada_assets
+	url = https://github.com/personalrobotics/ada_assets.git
