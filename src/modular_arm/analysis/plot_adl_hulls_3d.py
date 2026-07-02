@@ -68,9 +68,9 @@ def plot_comparative_hulls(adl_zones: dict):
         # Draw the sternum origin (0,0,0) as a reference point
         ax.scatter(0, 0, 0, color='black', s=50, label='Sternum Origin', zorder=5)
 
-        ax.set_xlabel('X (m) - Forward')
+        ax.set_xlabel('X (m) - Left')
         ax.set_ylabel('Y (m) - Vertical')
-        ax.set_zlabel('Z (m) - Lateral')
+        ax.set_zlabel('Z (m) - Posterior')
 
         # Custom legend handling to avoid duplicate labels from Poly3DCollection
         from matplotlib.patches import Patch

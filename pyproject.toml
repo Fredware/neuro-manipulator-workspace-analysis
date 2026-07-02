@@ -16,6 +16,8 @@ dependencies = [
     "polars>=1.39.3",
     "pymatreader>=1.2.3",
     "pyyaml>=6.0.3",
+    "scipy>=1.17.1",
+    "scipy-stubs~=1.17.1",
     "structlog>=25.5.0",
 ]
 

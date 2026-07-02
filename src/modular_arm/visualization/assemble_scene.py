@@ -1,4 +1,4 @@
-"""Assemble the neuro-manipulator with the ada_assets wheelchair and human
+"""Assemble the neuro-manipulator with the ada_assets wheelchair and human models
 
 Composes three MCJF components into a single MuJoCo scene via MjSpec:
     1. Wheelchair (Permobil frame with arm_attachment_site)
@@ -9,6 +9,8 @@ Usage:
     uv run python -m modular_arm.visualization.assemble_scene
     uv run python -m modular_arm.visualization.assemble_scene --arm-xml custom_arm.xml
     uv run python -m modular_arm.visualization.assemble_scene --save-xml scene.xml
+    uv run python -m modular_arm.visualization.assemble_scene --with-adl-hulls
+    uv run python -m modular_arm.visualization.assemble_scene --with-adl-hulls --hull-dir data/custom/
 """
 
 from __future__ import annotations
@@ -68,11 +70,21 @@ STERNUM_POS = np.array([0.24, 0.34, 1.05])
 STERNUM_SITE_RADIUS = 0.015
 """Visual radius for sternum marker [m]"""
 
+# --- ADL Hull Visuallization ---
+DEFAULT_ADL_HULL_DIR = PROJECT_ROOT / "data" / "adl-envelopes"
+# Zone colors match adl_envelope_generator.py TODO(@FRM): repeated code. Yet another reason to move to config.yaml
+ADL_ZONE_COLORS: dict[str, list[float]] = {
+    "zone_a": [0.90, 0.30, 0.20, 0.25], # warm red: personal care (HM, HH)
+    "zone_b": [0.20, 0.80, 0.30, 0.25], # green: grasping (BA, BC, SC)
+    "zone_c": [0.25, 0.45, 0.90, 0.25], # blue: prono-supination (PS)
+}
+
 def build_composite_spec(
         arm_xml_path: Path,
         *,
         with_human: bool = True,
         with_floor: bool = True,
+        adl_hull_dir: Path | None = None,
 ) -> mujoco.MjSpec:
     """Compose wheelchair + ARM + seated human into a single MjSpec.
 
@@ -80,9 +92,11 @@ def build_composite_spec(
         arm_xml_path: Path to the ANRM component MJCF.
         with_human: Include seated human model (body envelope, head, mouth).
         with_floor: Include floor plane and lighting.
+        adl_hull_dir: If provided, load ADL hull  STL files from this directory and render them as semi-transparent
+            visual geoms anchored at the sternum site.
 
     Returns:
-        A compiled-ready MjSpec containing all three components.
+        A compiled-ready MjSpec containing all components.
     """
     # --- 1. Wheelchair as the base spec ---
     wheelchair_path = MODELS_DIR / "wheelchair.xml"
@@ -149,7 +163,60 @@ def build_composite_spec(
         floor.contype = 1
         floor.conaffinity = 1
 
+    if adl_hull_dir is not None:
+        _attach_adl_hulls(spec, adl_hull_dir)
+
     return spec
+
+def _attach_adl_hulls(spec: mujoco.MjSpec, hull_dir: Path) -> None:
+    """Load ADL hull STLs and attach them as visual geoms at the sternum site.
+
+    Each STL file is expected to follow the naming convention from adl_envelope_generator.export_hulls_as_stl.
+    The zone name is extracted to look up the color
+
+    Hulls are in sternum-relative coordinates, so a container body at the sternum site renders them in the correct
+    world location.
+
+    Args:
+        spec: The MjSpec to modify (must already have a worldbody)
+        hull_dir: Directory containing STL hull files
+    """
+    stl_files = sorted(hull_dir.glob("*.stl"))
+    if not stl_files:
+        logger.warning("no_adl_envelopes_found", dir=str(hull_dir))
+        return
+
+    # Container body at the sternum site - hull vertices are sternum-relative
+    hull_body = spec.worldbody.add_body()
+    hull_body.name="adl_hull_container"
+    hull_body.pos = STERNUM_POS.tolist()
+
+    for stl_path in stl_files:
+        # Extract zone name from filename
+        parts = stl_path.stem.rsplit("_", 1)
+        zone_name = parts[0] if len(parts) > 1 else stl_path.stem
+        color = ADL_ZONE_COLORS.get(zone_name, [0.5, 0.5, 0.5, 0.10])
+
+        mesh_name = f"adl_{stl_path.stem}"
+
+        # Register mesh asset
+        mesh = spec.add_mesh()
+        mesh.name = mesh_name
+        mesh.file = str(stl_path)
+
+        # Visual-only geom; no collision or physics
+        geom = hull_body.add_geom()
+        geom.name = f"{mesh_name}_geom"
+        geom.type = mujoco.mjtGeom.mjGEOM_MESH
+        geom.meshname = mesh_name
+        geom.contype = 0
+        geom.conaffinity = 0
+        geom.group = 2
+        geom.rgba = color
+
+        logger.info("hull_geom_added", file=stl_path.name, zone=zone_name)
+
+    logger.info("adl_hulls_attached", n_hulls=len(stl_files))
 
 def verify_sites(model: mujoco.MjModel, data: mujoco.MjData) -> None:
     """Log positions of key sites for visual inspection and verification.
@@ -195,6 +262,14 @@ def main() -> int:
         help="Exclude seated human model.",
     )
     parser.add_argument(
+        "--with-adl-hulls", action="store_true",
+        help="Load ADL hull STLs and render them at the sternum position"
+    )
+    parser.add_argument(
+        "--hull-dir", type=Path, default=DEFAULT_ADL_HULL_DIR,
+        help=f"Directory containing ADL hull STLs (default{DEFAULT_ADL_HULL_DIR})",
+    )
+    parser.add_argument(
         "--verify", action="store_true", default=True,
         help="Log site positions for verification (default: True).",
     )
@@ -203,6 +278,7 @@ def main() -> int:
     spec  = build_composite_spec(
         args.arm_xml,
         with_human=not args.no_human,
+        adl_hull_dir=args.hull_dir if args.with_adl_hulls else None,
     )
 
     if args.save_xml is not None:
@@ -221,7 +297,10 @@ def main() -> int:
     mujoco.mj_forward(model, data)
     if args.verify:
         verify_sites(model, data)
-    logger.info("launching_viewer", n_bodies=model.nbody, n_joints=model.njnt)
+    logger.info(
+        "launching_viewer",
+        n_bodies=model.nbody, n_joints=model.njnt, n_actuators=model.nu,
+    )
     mujoco.viewer.launch(model, data)
     return 0
 
