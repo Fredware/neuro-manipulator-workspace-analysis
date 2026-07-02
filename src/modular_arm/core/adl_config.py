@@ -21,3 +21,4 @@ def load_settings(yaml_path: str = "config.yaml") -> PipelineSettings:
     )
 
 settings = load_settings()
+

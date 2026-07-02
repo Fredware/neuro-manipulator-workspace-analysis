@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "ada-assets",
     "dm-control>=1.0.38",
     "matplotlib>=3.10.8",
     "mujoco>=3.6.0",
@@ -18,6 +19,10 @@ dependencies = [
     "structlog>=25.5.0",
 ]
 
+[tool.uv.sources]
+ada-assets = {path = "external/ada_assets", editable = true}
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+

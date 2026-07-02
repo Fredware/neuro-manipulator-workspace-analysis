@@ -16,6 +16,23 @@ wheels = [
 ]
 
 [[package]]
+name = "ada-assets"
+version = "0.1.0"
+source = { editable = "external/ada_assets" }
+dependencies = [
+    { name = "mujoco" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "mujoco" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -673,6 +690,7 @@ name = "neuro-manipulator-workspace-analysis"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "ada-assets" },
     { name = "dm-control" },
     { name = "matplotlib" },
     { name = "mujoco" },
@@ -685,6 +703,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ada-assets", editable = "external/ada_assets" },
     { name = "dm-control", specifier = ">=1.0.38" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mujoco", specifier = ">=3.6.0" },
