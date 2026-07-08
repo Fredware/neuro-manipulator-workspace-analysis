@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import structlog
 
-from modular_arm.modules.sea_module import SEAModule
+from modular_arm.robot.sea_module import SEAModule
 
 logger = structlog.get_logger(__name__)
 
@@ -487,7 +487,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from modular_arm.core.robot_config import get_robot_config
+    from modular_arm.robot.robot_config import get_robot_config
     config = get_robot_config()
     assembler: ArmAssembler = config["assembler"]
 

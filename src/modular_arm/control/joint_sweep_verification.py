@@ -5,7 +5,7 @@ import numpy as np
 import time
 import polars as pl
 
-from modular_arm.core.robot_config import get_robot_config
+from modular_arm.robot.robot_config import get_robot_config
 
 TOLERANCE = 0.05 # Radians to consider a point "reached". TODO: move to config file
 

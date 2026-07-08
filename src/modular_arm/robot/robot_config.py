@@ -1,6 +1,6 @@
 import numpy as np
-from modular_arm.modules.sea_module import SEAModule
-from modular_arm.modules.arm_assembler import ArmAssembler
+from modular_arm.robot.sea_module import SEAModule
+from modular_arm.robot.arm_assembler import ArmAssembler
 
 IN_TO_M = 0.0254
 

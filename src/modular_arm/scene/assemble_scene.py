@@ -6,11 +6,11 @@ Composes three MCJF components into a single MuJoCo scene via MjSpec:
     3. Seated Human (body collision envelope, head mesh, mouth site)
 
 Usage:
-    uv run python -m modular_arm.visualization.assemble_scene
-    uv run python -m modular_arm.visualization.assemble_scene --arm-xml custom_arm.xml
-    uv run python -m modular_arm.visualization.assemble_scene --save-xml scene.xml
-    uv run python -m modular_arm.visualization.assemble_scene --with-adl-hulls
-    uv run python -m modular_arm.visualization.assemble_scene --with-adl-hulls --hull-dir data/custom/
+    uv run python -m modular_arm.core.scene.assemble_scene
+    uv run python -m modular_arm.core.scene.assemble_scene --arm-xml custom_arm.xml
+    uv run python -m modular_arm.core.scene.assemble_scene --save-xml scene.xml
+    uv run python -m modular_arm.core.scene.assemble_scene --with-adl-hulls
+    uv run python -m modular_arm.core.scene.assemble_scene --with-adl-hulls --hull-dir data/custom/
 """
 
 from __future__ import annotations

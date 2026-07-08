@@ -1,51 +1,99 @@
-## Program commands
-1. Specify the geometry of the workspace from the kinematic ADL dataset
-   ```{bash}
-   uv run python -m src.modular_arm.analysis.adl_envelope_generator --export-stl --stl-dir data/adl-envelopes/
-   ```
-2. Specify the physical properties of the ARM
-    
-   ```{bash}
-    src/modular_arm/core/robot_config.py
-    ```
-   
-3. Generate the MJCF XML scene and component files for the robot from robot_config.py
- 
-   ```{bash}
-   uv run python -m src.modular_arm.modules.arm_assembler --mode both
-   uv run python -m mujoco.viewer --mjcf=data/robot-models/mjcf/model.xml      
-   uv run python -m mujoco.viewer --mjcf=data/robot-models/mjcf/neuro_arm.xml
-   ```
+# neuro-manipulator-workspace-analysis
 
-4. Sanity check visualization of the ARM
+Workspace-coverage analysis and geometry optimization for the **neuro-manipulator** —
+a 6-DOF wheelchair-mounted assistive arm built from Series Elastic Actuator (SEA)
+modules — evaluated against ADL (Activities of Daily Living) workspace envelopes
+derived from motion-capture data and simulated in MuJoCo.
 
-   Runs a state-machine simulation in MuJoCo to step through discrete joint angles.
-   Use it to verify physical assembly, coordinate frames and clearance.
-   Can also use it to visualize ADL convex hulls.
+## Prerequisites
 
-    ```{bash}
-    uv run pyton -m src.modular_arm.control.configuration_designer
-    uv run python -m src.modular_arm.visualization.assemble_scene
-    uv run python -m src.modular_arm.visualization.assemble_scene --with-adl-hulls
-    ```
-5. Monte Carlo Volumetric Simulation
+- [`uv`](https://docs.astral.sh/uv/) for environment and dependency management
+- `git` (the `ada_assets` wheelchair + human models are a submodule)
 
-   Bypass physics controller loop to rapidly sample thousands of random configurations.
-   Uses forward kinematics to generate a dense cloud required for statistical ADL zone intersection matrix.
-    ```{bash}
-    uv run python -m src.modular_arm.analysis.monte_carlo_simulation
-    ```
-6. 3D Visualization of the Workspace
+## Installation
 
-    ```{bash}
-    uv run python -m src.modular_arm.analysis.visualize_envelope
-    ```
-7. Generate and visualize envelopes from motion tracking (kinematic) data
-   
-   ```{bash}
-   uv run python -m src.modular_arm.analysis.adl_envelope_generator
-   uv run python -m src.modular_arm.analysis.plot_adl_hulls_3d
-   ```
-## Installation instructions
-To work with the ADA assets repo, run `git submodule update --init` to pull `ada_assets`, then `uv sync` to install the rest of the dependencies.
+```bash
+git submodule update --init      # pull ada_assets (Permobil wheelchair + seated human)
+uv sync                          # create the venv and install all dependencies
+```
 
+`uv run <cmd>` auto-syncs before running, so after the initial `uv sync` you can just
+use `uv run ...` for everything below. All commands are run from the repository root.
+
+## Package layout
+
+Dependencies flow downward toward `core`; nothing in `core` imports upward.
+
+| Package          | Responsibility                                                        |
+|------------------|-----------------------------------------------------------------------|
+| `core`           | Foundational config loading and coordinate-frame conventions          |
+| `robot`          | The physical arm model: SEA modules, MJCF assembler, robot config     |
+| `scene`          | Integration: arm + wheelchair + seated human composed into one scene  |
+| `analysis`       | Produces results/data: envelope generation, Monte Carlo, optimization |
+| `control`        | Controllers and interactive joint-sweep inspection                    |
+| `visualization`  | Matplotlib plotters for envelopes and workspace clouds                |
+
+## Pipeline
+
+### 1. Generate ADL workspace envelopes from the kinematic dataset
+
+Loads the motion-capture CSV generated from the [Lucchetti et al. dataset](https://doi-org.ezproxy.lib.utah.edu/10.1038/s41597-025-06174-3), 
+normalizes to sternum-relative coordinates, and builds convex-hull / Delaunay envelopes per zone. `--export-stl` also writes hulls for MuJoCo.
+
+```bash
+uv run python -m modular_arm.analysis.adl_envelope_generator --export-stl --stl-dir data/adl-envelopes/
+```
+
+### 2. Define the arm geometry
+
+Edit the centralized robot definition (link lengths, masses, joint ranges):
+
+```
+src/modular_arm/robot/robot_config.py
+```
+
+### 3. Generate the robot MJCF (component + full scene)
+
+```bash
+uv run python -m modular_arm.robot.arm_assembler --mode both
+uv run python -m mujoco.viewer --mjcf=data/robot-models/mjcf/neuro_arm.xml
+```
+
+### 4. Sanity-check the assembly in the viewer
+
+Steps through discrete joint angles to verify assembly, coordinate frames, and
+clearance; the scene assembler can also overlay the ADL hulls.
+
+```bash
+uv run python -m modular_arm.control.configuration_designer
+uv run python -m modular_arm.scene.assemble_scene
+uv run python -m modular_arm.scene.assemble_scene --with-adl-hulls
+```
+
+### 5. Monte Carlo workspace sampling
+
+Bypasses the controller loop and samples thousands of random configurations via
+forward kinematics to build a dense reachability cloud.
+
+```bash
+uv run python -m modular_arm.analysis.monte_carlo_simulation
+```
+
+### 6. Optimize link lengths for ADL coverage
+
+Searches link lengths (differential evolution) to maximize volumetric ADL
+reachability. Use `--evaluate-nominal` to score the current design and
+`--report-reach` to print the required-vs-available reach per zone.
+
+```bash
+uv run python -m modular_arm.analysis.optimize_link_lengths --report-reach
+uv run python -m modular_arm.analysis.optimize_link_lengths --evaluate-nominal
+uv run python -m modular_arm.analysis.optimize_link_lengths --maxiter 150 --workers -1
+```
+
+### 7. Visualize results
+
+```bash
+uv run python -m modular_arm.visualization.visualize_envelope    # workspace cloud vs ADL zones
+uv run python -m modular_arm.visualization.plot_adl_hulls_3d      # HS vs ST envelope comparison
+```

@@ -32,7 +32,7 @@ import polars as pl
 import structlog
 from scipy.spatial import ConvexHull, Delaunay
 
-from modular_arm.core.adl_config import settings
+from modular_arm.core.config import settings
 
 logger = structlog.get_logger(__name__)
 

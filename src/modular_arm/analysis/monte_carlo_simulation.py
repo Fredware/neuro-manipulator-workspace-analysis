@@ -6,7 +6,7 @@ import time
 
 from lxml.html.defs import head_tags
 from tqdm import tqdm
-from modular_arm.core.robot_config import get_robot_config
+from modular_arm.robot.robot_config import get_robot_config
 
 def run_stratified_montecarlo(samples_per_layer=5000):
     # 1. Load robot params

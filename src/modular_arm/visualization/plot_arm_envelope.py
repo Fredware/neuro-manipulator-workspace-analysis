@@ -4,7 +4,7 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import os
 import mujoco
-from modular_arm.core.robot_config import get_robot_config
+from modular_arm.robot.robot_config import get_robot_config
 
 
 # --- HELPER FUNCTIONS ---

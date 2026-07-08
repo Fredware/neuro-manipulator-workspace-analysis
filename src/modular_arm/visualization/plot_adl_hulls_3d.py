@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from modular_arm.core.adl_config import settings
+from modular_arm.core.config import settings
 from modular_arm.analysis.adl_envelope_generator import generate_cohort_hulls
 
 
