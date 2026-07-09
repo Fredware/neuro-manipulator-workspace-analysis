@@ -31,7 +31,16 @@ robot:
                ee_length: 3.5}
 
 scene:
+  # Arm base position relative to the wheelchair mesh origin [m].
+  #   x: negative = toward the back of the chair
+  #   y: 0 = centered on the right armrest rail
+  #   z: positive = above the wheelchair mesh origin
+  # TODO(@FRM): measure from Permobil armrest / CAD; current values are viewer estimates.
   arm_attachment_pos: [-0.04, 0.00, 0.05]
+  # Sternum (suprasternal notch) in the floor frame [m]. 50th-percentile seated male.
+  #   x: 0.24 m - forward from wheelchair center (front of chest)
+  #   y: 0.34 m - body midline (matches head y in seated.xml)
+  #   z: 1.05 m - seat_z + sternum_from_seat
   sternum_pos: [0.24, 0.34, 1.05]
 
 optimizer:

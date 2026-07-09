@@ -25,45 +25,10 @@ import numpy as np
 import structlog
 
 from ada_assets import ASSETS_DIR, MODELS_DIR
-from modular_arm.core.config import get_adl_settings, get_paths
+from modular_arm.core.config import get_adl_settings, get_paths, get_scene_settings
 
 logger = structlog.get_logger(__name__)
 
-# --- ARM attachment geometry ---
-# JACO mounts at [-0.02, 0.02, 0.05] relative to the wheelchair mesh origin (z=0.4612 in the floor frame).
-# That position was derived from the ADA planning scene where the wheelchair sits at [0.02, -0.02, -0.05] from the
-# JACO root.
-#
-# The neuro arm has a wider base cylinder (r=0.033 m vs JACO's ~0.020 m) and a different vertical profile.
-# The x-offset pushes the base outward to clear the armrest; y centers it on the right side. z controls the height above
-# the whelchair mesh origin.
-#
-# TODO: @FRM, Measure from physical Permobil armrest or CAD. These are initial estimates for visualization; iterate in viewer.
-ARM_ATTACHMENT_POS = np.array([-0.04, 0.00, 0.05])
-"""Arm base position relative to wheelchair mesh origin [m].
-    x: negative = toward the back of the chair
-    y: zero = centered on the right armrest rail
-    z: positive = above the wheelchair mesh origin
-"""
-
-# --- Sternum reference point ---
-# All ADL envelopes from adl_envelope_generator.py are normalized to the sternum (0, 0, 0). This site provides the
-# sternum position in the MuJoCo world frame so the FK pipeline can transform EE positions into the ADL hull coordinate frame.
-#
-# Anthropometic basis (50th-percentile seated male):
-#   * Seat surface: ~0.46 m (wheelchair_base z in ada_assets)
-#   * Sitting height (seat to crown): ~0.91 m
-#   * Sternum (suprasternal notch) from seat: ~0.47 m
-#   * Sternum (depth from spine): ~ 0.22 m forward
-#
-# Floor-frame coordinates:
-#   x: 0.24 m - forward from wheelchair center (front of chest)
-#   y: 0.34 m - body midline (matches head y in seated.xml)
-#   z: 0.93 m - seat_z + sternum_from_seat = 0.46 + 0.47
-#
-# TODO(@FRM): Adjust per participant anthropometrics. These values match 50th percentile male seated dimensions from Dreyfuss/Tilley.
-STERNUM_POS = np.array([0.24, 0.34, 1.05])
-"""Sternum (suprasternal notch) position in floor frame [m]"""
 STERNUM_SITE_RADIUS = 0.015
 """Visual radius for sternum marker [m]"""
 
@@ -90,6 +55,7 @@ def build_composite_spec(
     Returns:
         A compiled-ready MjSpec containing all components.
     """
+    scene = get_scene_settings()
     # --- 1. Wheelchair as the base spec ---
     wheelchair_path = MODELS_DIR / "wheelchair.xml"
     logger.info("loading_wheelchair", path=str(wheelchair_path))
@@ -100,10 +66,10 @@ def build_composite_spec(
 
     # --- 2. Attach ANRM to the wheelchair mounting site ---
     arm_site = spec.site("arm_attachment_site")
-    arm_site.pos = ARM_ATTACHMENT_POS.tolist()
+    arm_site.pos = list(scene.arm_attachment_pos)
     logger.info(
         "arm_attachment_adjusted",
-        pos=ARM_ATTACHMENT_POS.tolist(),
+        pos=arm_site.pos,
         note="override JACO2 position for neuro-arm base geometry",
     )
     logger.info("loading_arm", path=str(arm_xml_path))
@@ -125,14 +91,15 @@ def build_composite_spec(
         user_body = human_spec.body("user_body")
         sternum_site = user_body.add_site()
         sternum_site.name = "sternum"
+        sternum_pos = np.array(scene.sternum_pos)
         user_body_pos = np.array([0.0, 0.0, 0.4612])
-        sternum_relative = STERNUM_POS - user_body_pos
+        sternum_relative = sternum_pos - user_body_pos
         sternum_site.pos = sternum_relative.tolist()
         sternum_site.size = [STERNUM_SITE_RADIUS, STERNUM_SITE_RADIUS, STERNUM_SITE_RADIUS]
         sternum_site.rgba = [1.0, 0, 1.0, 0.80]
         logger.info(
             "sternum_site_added",
-            floor_frame_pos=STERNUM_POS.tolist(),
+            floor_frame_pos=sternum_pos.tolist(),
             body_relative_pos=sternum_relative.tolist(),
         )
 
@@ -181,8 +148,7 @@ def _attach_adl_hulls(spec: mujoco.MjSpec, hull_dir: Path) -> None:
     # Container body at the sternum site - hull vertices are sternum-relative
     hull_body = spec.worldbody.add_body()
     hull_body.name="adl_hull_container"
-    hull_body.pos = STERNUM_POS.tolist()
-
+    hull_body.pos = list(get_scene_settings().sternum_pos)
     zone_colors = get_adl_settings().zone_colors
     for stl_path in stl_files:
         # Extract zone name from filename
