@@ -33,6 +33,7 @@ import structlog
 from scipy.spatial import ConvexHull, Delaunay
 
 from modular_arm.core.config import settings
+from modular_arm.core.frames import LAB_TO_MUJOCO
 
 logger = structlog.get_logger(__name__)
 
@@ -174,25 +175,6 @@ def generate_cohort_hulls(
             )
 
     return adl_envelopes
-
-# --- STL Export ---
-# Coordinate frame mapping
-# The optoelectronic syste (BTS SMART-DX EVO) uses:
-#   Lab +X = lateral (subject's left)
-#   Lab +Y = vertical (up)
-#   Lab +Z = behind the subject (away from the table)
-#
-# MuJoCo / ada_assets convention:
-#    MuJoCo X = forward
-#    MuJoCo Y = lateral
-#    MuJoCo Z = up
-#
-# Transform: swap Y and Z columns
-LAB_TO_MUJOCO = np.array([
-    [0, 0, -1], # MuJoCo X (forward) = - Lab Z
-    [-1, 0, 0], # MuJoCo Y (lateral) = - Lab X
-    [0, 1, 0],  # MuJoCo Z (up)      = + Lab Y
-], dtype=np.float64)
 
 def hull_to_binary_stl(
         hull: ConvexHull,

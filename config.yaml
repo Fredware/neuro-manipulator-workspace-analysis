@@ -1,12 +1,41 @@
-adl_envelope_pipeline:
-  adl_csv_path: "./data/kinematic-emg-adl-dataset/clean_adl_kinematics.csv"
+paths:
+  adl_csv: "data/kinematic-emg-adl-dataset/clean_adl_kinematics.csv"
+  adl_envelopes_dir: "data/adl-envelopes"
+  robot_mjcf_dir: "data/robot-models/mjcf"
+
+adl_envelope:
+  default_cohort: "ALL" # HS | ST | ALL
+  trim_quantiles: [0.05, 0.95] # Percentile thresholds for trimming outliers
   zone_mappings:
-    zone_a:
+    zone_a: # Personal Care
       - "HM" # Hand to Mouth. Subject brings their hand to their mouth. Assesses Gross UL movement, hand-eye coordination essential for eating and grooming
       - "HH" # Hand to Head. Subject brings their hand to their head moving hand through hair. Assesses Gross UL movement and hand-eye coordination.
-    zone_b:
+    zone_b: # Grasping
       - "BA" # Grasp 5 cm Ball. Subject reaches, grasps and places a 5 cm ball on an elevated surface. Assesses Grip strength crucial for grasping daily objects
-      - "BC" # Grasp 5 cm^3 Block. Subject reaches grasps and places block on an elevated surface. Assesses Fine motor skills, arm coordination, hand dexterity, important for manipulating small objects
+      - "BC" # Grasp 5 cm^3 Block. Subject reaches grasps and places a block on an elevated surface. Assesses Fine motor skills, arm coordination, hand dexterity, important for manipulating small objects
       - "SC" # Grasp 2.5 cm^3 Block. Same as BC
-    zone_c:
+    zone_c: # Prono-supination
       - "PS" # Prono-supination: Subject grasps an iron tube, rotates it by performing forearm supination, and returns it to its original position via forearm pronation. Assesses wrist rotation
+  zone_colors:
+    zone_a: [0.90, 0.30, 0.20, 0.25]
+    zone_b: [0.20, 0.80, 0.30, 0.25]
+    zone_c: [0.25, 0.45, 0.90, 0.25]
+
+robot:
+  lengths_in: {dof1_height: 24, # TODO(@FRM): change to "length"
+               dof2_slide_range: 12.0,
+               dof2_start_height: 4.5,
+               dof3_length: 30,
+               dof4_length: 10,
+               dof6_length: 1.5,
+               ee_length: 3.5}
+
+scene:
+  arm_attachment_pos: [-0.04, 0.00, 0.05]
+  sternum_pos: [0.24, 0.34, 1.05]
+
+optimizer:
+  n_joint_samples: 4096
+  reach_eps_m: 0.03
+  objective: "mean"
+
