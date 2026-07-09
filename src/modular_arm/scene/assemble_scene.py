@@ -25,12 +25,9 @@ import numpy as np
 import structlog
 
 from ada_assets import ASSETS_DIR, MODELS_DIR
+from modular_arm.core.config import get_adl_settings, get_paths
 
 logger = structlog.get_logger(__name__)
-
-# --- Paths --- TODO: @FRM, move to config file
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_ARM_XML = PROJECT_ROOT / "data" / "robot-models" / "mjcf" / "neuro_arm.xml"
 
 # --- ARM attachment geometry ---
 # JACO mounts at [-0.02, 0.02, 0.05] relative to the wheelchair mesh origin (z=0.4612 in the floor frame).
@@ -71,13 +68,8 @@ STERNUM_SITE_RADIUS = 0.015
 """Visual radius for sternum marker [m]"""
 
 # --- ADL Hull Visuallization ---
-DEFAULT_ADL_HULL_DIR = PROJECT_ROOT / "data" / "adl-envelopes"
-# Zone colors match adl_envelope_generator.py TODO(@FRM): repeated code. Yet another reason to move to config.yaml
-ADL_ZONE_COLORS: dict[str, list[float]] = {
-    "zone_a": [0.90, 0.30, 0.20, 0.25], # warm red: personal care (HM, HH)
-    "zone_b": [0.20, 0.80, 0.30, 0.25], # green: grasping (BA, BC, SC)
-    "zone_c": [0.25, 0.45, 0.90, 0.25], # blue: prono-supination (PS)
-}
+UNKNOWN_ZONE_COLOR: list[float] = [0.5, 0.5, 0.5, 0.10]
+"""Fallback RGBA for hull STLs whose zone name isn't in the config palette"""
 
 def build_composite_spec(
         arm_xml_path: Path,
@@ -191,11 +183,12 @@ def _attach_adl_hulls(spec: mujoco.MjSpec, hull_dir: Path) -> None:
     hull_body.name="adl_hull_container"
     hull_body.pos = STERNUM_POS.tolist()
 
+    zone_colors = get_adl_settings().zone_colors
     for stl_path in stl_files:
         # Extract zone name from filename
         parts = stl_path.stem.rsplit("_", 1)
         zone_name = parts[0] if len(parts) > 1 else stl_path.stem
-        color = ADL_ZONE_COLORS.get(zone_name, [0.5, 0.5, 0.5, 0.10])
+        color = zone_colors.get(zone_name, UNKNOWN_ZONE_COLOR)
 
         mesh_name = f"adl_{stl_path.stem}"
 
@@ -251,8 +244,8 @@ def verify_sites(model: mujoco.MjModel, data: mujoco.MjData) -> None:
 def main() -> int:
     """CLI entrypoint: assemble and launch the composite scene."""
     parser = argparse.ArgumentParser(description="Assemble Assistive NeuroRobot Manipulator + Wheelchair + Human scene.")
-    parser.add_argument("--arm-xml", type=Path, default=DEFAULT_ARM_XML,
-                        help=f"Path to ANRM component MJCF (default{DEFAULT_ARM_XML})",
+    parser.add_argument("--arm-xml", type=Path, default=None,
+                        help=f"Path to ANRM component MJCF (default: paths.robot_mjcf_dir/neuro_arm.xml)",
                         )
     parser.add_argument("--save-xml", type=Path, default=None,
                         help="If set, save the composed MJCF to this path instead of launching the viewer.",
@@ -266,8 +259,8 @@ def main() -> int:
         help="Load ADL hull STLs and render them at the sternum position"
     )
     parser.add_argument(
-        "--hull-dir", type=Path, default=DEFAULT_ADL_HULL_DIR,
-        help=f"Directory containing ADL hull STLs (default{DEFAULT_ADL_HULL_DIR})",
+        "--hull-dir", type=Path, default=None,
+        help=f"Directory containing ADL hull STLs (default: paths.adl_envelopes_dir from config)",
     )
     parser.add_argument(
         "--verify", action="store_true", default=True,
@@ -275,10 +268,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    arm_xml = args.arm_xml or (get_paths().robot_mcjf_dir / "neuro_arm.xml")
+    hull_dir = args.hull_dir or get_paths().adl_envelopes_dir
     spec  = build_composite_spec(
-        args.arm_xml,
+        arm_xml,
         with_human=not args.no_human,
-        adl_hull_dir=args.hull_dir if args.with_adl_hulls else None,
+        adl_hull_dir=hull_dir if args.with_adl_hulls else None,
     )
 
     if args.save_xml is not None:

@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from modular_arm.core.config import settings
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from modular_arm.core.config import get_paths, get_adl_settings
 from modular_arm.analysis.adl_envelope_generator import generate_cohort_hulls
 
 
@@ -86,13 +85,13 @@ def plot_comparative_hulls(adl_zones: dict):
 
 
 if __name__ == "__main__":
-    target_csv = Path(settings.adl_csv_path)
+    target_csv = get_paths().adl_csv
 
-    print("🚀 Generating geometric volumes for visual validation...")
+    print("Generating geometric volumes for visual validation...")
     try:
         # Generate the exact structures that will be passed to Monte Carlo
-        clinical_zones = generate_cohort_hulls(target_csv, settings.zone_mappings)
+        clinical_zones = generate_cohort_hulls(target_csv, get_adl_settings().zone_mappings)
         plot_comparative_hulls(clinical_zones)
     except Exception as e:
-        print(f"❌ Visualization failed: {e}")
+        print(f"Visualization failed: {e}")
 

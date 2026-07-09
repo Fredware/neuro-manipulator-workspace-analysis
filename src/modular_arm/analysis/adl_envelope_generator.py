@@ -32,25 +32,10 @@ import polars as pl
 import structlog
 from scipy.spatial import ConvexHull, Delaunay
 
-from modular_arm.core.config import settings
+from modular_arm.core.config import get_paths, get_adl_settings
 from modular_arm.core.frames import LAB_TO_MUJOCO
 
 logger = structlog.get_logger(__name__)
-
-# --- Default Output Paths --- TODO(@FRM): move to config.yaml
-DEFAULT_STL_DIR = Path("data/adl-envelopes")
-
-# --- Zone Colors for MuJoCo rendering --- TODO(@FRM): move to config.yaml
-# RGBA with low alpha so that the ARM is visible through the hulls
-# Shared with assemble_scene.py via import
-ADL_ZONE_COLORS: dict[str, list[float]] = {
-    "zone_a": [0.90, 0.30, 0.20, 0.25], # warm red: personal care (HM, HH)
-    "zone_b": [0.20, 0.80, 0.30, 0.25], # green: grasping (BA, BC, SC)
-    "zone_c": [0.25, 0.45, 0.90, 0.25], # blue: prono-supination (PS)
-}
-
-DEFAULT_COHORT = "ALL"
-"""Which cohort to export by default. ALL = healthy + stroke combined."""
 
 # --- Normalization and filtering ---
 def normalize_kinematics(df: pl.DataFrame) -> pl.DataFrame:
@@ -74,17 +59,22 @@ def normalize_kinematics(df: pl.DataFrame) -> pl.DataFrame:
         pl.col("z_local").is_not_nan()
     )
 
-def filter_95th_percentile(df: pl.DataFrame) -> np.ndarray:
-    """Trim spatial outliers using double-tailed 2.5-97.5 quantiles to isolate core envelopes.
+def trim_spatial_outliers(
+        df: pl.DataFrame,
+        quantiles: tuple[float, float] | None = None,
+) -> np.ndarray:
+    """Trim spatial outliers to a quantile range to isolate core envelopes.
 
     Args:
         df: Dataframe with x_local, y_local, z_local columns in meters.
+        quantiles: (low, high) quantile bounds. Defaults to adl_envelope.trim_quantiles from config.yaml.
 
     Returns:
         Nx3 numpy array of trimmed kinematics for scipy spatial ops
     """
-    quant_lo = 0.025
-    quant_hi = 0.975
+    if quantiles is None:
+        quantiles = get_adl_settings().trim_quantiles
+    quant_lo, quant_hi = quantiles
     bounds = df.select([
         pl.col("x_local").quantile(quant_lo).alias("x_min"),
         pl.col("x_local").quantile(quant_hi).alias("x_max"),
@@ -152,7 +142,7 @@ def generate_cohort_hulls(
             if slice_df.is_empty():
                 continue
 
-            core_kinematics = filter_95th_percentile(slice_df)
+            core_kinematics = trim_spatial_outliers(slice_df)
             # SciPy Geometry Generation
             hull = ConvexHull(core_kinematics)
             hull_vertices = core_kinematics[hull.vertices]
@@ -222,8 +212,8 @@ def hull_to_binary_stl(
 
 def export_hulls_as_stl(
         adl_envelopes: dict[str, dict[str, Any]],
-        output_dir: Path = DEFAULT_STL_DIR,
-        cohort: str = DEFAULT_COHORT,
+        output_dir: Path | None = None,
+        cohort: str | None = None,
 ) -> list[Path]:
     """Export ADL convex hulls as binary STL files for MuJoCo rendering.
 
@@ -240,6 +230,12 @@ def export_hulls_as_stl(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
+
+    if output_dir is None:
+        output_dir = get_paths().adl_envelopes_dir
+    if cohort is None:
+        cohort = get_adl_settings().default_cohort
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for zone_name, cohorts in adl_envelopes.items():
         if cohort not in cohorts:
@@ -270,19 +266,19 @@ def main() -> int:
         help="Export ConvexHulls as STL files for MuJoCo rendering"
     )
     parser.add_argument(
-        "--stl-dir", type=Path, default=DEFAULT_STL_DIR,
-        help=f"Directory to write STL files (default: {DEFAULT_STL_DIR})"
+        "--stl-dir", type=Path, default=None,
+        help=f"Directory to write STL files (default: paths.adl_envelopes_dir from config.yaml)"
     )
     parser.add_argument(
-        "--cohort", choices=["HS", "ST", "ALL"], default=DEFAULT_COHORT,
-        help=f"Cohort to export (default: {DEFAULT_COHORT})"
+        "--cohort", choices=["HS", "ST", "ALL"], default=None,
+        help=f"Cohort to export (default: adl_envelope.default_cohort from config.yaml)"
     )
     args = parser.parse_args()
 
-    target_csv = Path(settings.adl_csv_path)
+    target_csv = Path(get_paths().adl_csv)
 
     try:
-        adl_zones = generate_cohort_hulls(target_csv, settings.zone_mappings)
+        adl_zones = generate_cohort_hulls(target_csv, get_adl_settings().zone_mappings)
     except Exception as e:
         logger.exception("Pipeline failed", error=str(e))
         return 1
@@ -295,10 +291,11 @@ def main() -> int:
             print(f"\t{cohort_name} Hull Volume: {geom['hull'].volume:.4f} m^3")
 
     if args.export_stl:
+        stl_dir = args.stl_dir or get_paths().adl_envelopes_dir
         written = export_hulls_as_stl(
-            adl_zones, output_dir=args.stl_dir, cohort=args.cohort,
+            adl_zones, output_dir=stl_dir, cohort=args.cohort,
         )
-        print(f"Exported {len(written)} STL files to {args.stl_dir}")
+        print(f"Exported {len(written)} STL files to {stl_dir}")
     return 0
 
 if __name__ == "__main__":

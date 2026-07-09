@@ -113,17 +113,3 @@ def get_optimizer_settings() -> OptimizerSettings:
         objective=s["objective"],
     )
 
-# --- backward-compatibility shim --- TODO(@FRM): reomve once ADL consumers move to get_adl_settings()
-
-@dataclass(frozen=True) # froze=True emulates immutability by making class read-only
-class PipelineSettings:
-    adl_csv_path: str
-    zone_mappings: dict[str, list[str]]
-
-def get_settings() -> PipelineSettings:
-    """Deprecated: bridges old ADL consumers to the new sectioned config"""
-    return PipelineSettings(
-        adl_csv_path=str(get_paths().adl_csv),
-        zone_mappings=get_adl_settings().zone_mappings,
-    )
-
