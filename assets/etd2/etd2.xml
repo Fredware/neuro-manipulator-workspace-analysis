@@ -1,0 +1,98 @@
+<?xml version="1.0" ?>
+<mujoco model="etd2_prehensor">
+  <compiler angle="degree" meshdir="."/>
+  
+  <visual>
+    <global offwidth="1280" offheight="960"/>
+  </visual>
+
+  <option integrator="RK4" timestep="0.002">
+    <flag energy="enable"/>
+  </option>
+
+  <default>
+    <geom rgba="0.6 0.6 0.65 1" friction="1.0 0.005 0.001"/>
+    <joint damping="0.5"/>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" 
+             rgb1=".15 .2 .25" rgb2=".2 .25 .3" width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="4 4"/>
+    <material name="tine_moving" rgba="0.75 0.75 0.78 1" specular="0.6" shininess="0.8"/>
+    <material name="tine_fixed" rgba="0.70 0.70 0.73 1" specular="0.6" shininess="0.8"/>
+    <material name="housing_mat" rgba="0.25 0.25 0.28 1" specular="0.3" shininess="0.4"/>
+    <material name="rubber" rgba="0.15 0.15 0.15 1" specular="0.1"/>
+    
+    <!-- Decimated STL meshes (already in meters) -->
+    <mesh name="moving_tine_mesh" file="moving_tine.stl"/>
+    <mesh name="fixed_tine_mesh" file="fixed_tine.stl"/>
+    <mesh name="housing_mesh" file="housing.stl"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.2 0.2 0.5" dir="-0.3 -0.3 -1" diffuse="0.9 0.9 0.9" castshadow="true"/>
+    <light pos="-0.2 0.1 0.3" dir="0.3 -0.1 -1" diffuse="0.4 0.4 0.4"/>
+    <geom name="floor" type="plane" size="0.5 0.5 0.01" material="grid"/>
+
+    <!-- ETD2 base: housing mounted above the floor -->
+    <!-- Pivot at (31.4mm, 3.1mm, -2.6mm) in assembly frame -->
+    <!-- We place the housing so the pivot is at the world origin + some height -->
+    <body name="etd2_base" pos="0 0 0.15">
+      <!-- Mounting shaft (simplified as cylinder) -->
+      <geom name="shaft" type="cylinder" size="0.00675 0.052" 
+            pos="0.031 0.003 -0.003" rgba="0.3 0.3 0.33 1"/>
+      
+      <!-- Housing body -->
+      <geom name="housing" type="mesh" mesh="housing_mesh" 
+            material="housing_mat" contype="0" conaffinity="0"/>
+
+      <!-- Fixed tine (no joint — rigidly attached to housing) -->
+      <body name="fixed_tine" pos="0 0 0">
+        <geom name="fixed_tine_geom" type="mesh" mesh="fixed_tine_mesh" 
+              material="tine_fixed"/>
+        <!-- Contact site at the tip for grasp detection -->
+        <site name="fixed_tip" pos="-0.062 -0.010 -0.017" size="0.003" 
+              rgba="1 0.3 0.3 0.8"/>
+      </body>
+
+      <!-- Moving tine (revolute joint around Y axis at pivot) -->
+      <!-- Pivot estimated at (31.4, 3.1, -2.6) mm = (0.0314, 0.0031, -0.0026) m -->
+      <body name="moving_tine_pivot" pos="0.0314 0.0031 -0.0026">
+        <joint name="tine_joint" type="hinge" axis="0 1 0"
+               range="-10 100" ref="0"
+               damping="0.1" stiffness="2.0"/>
+        <body name="moving_tine" pos="-0.0314 -0.0031 0.0026">
+          <!-- Offset back so the mesh stays in its original frame -->
+          <geom name="moving_tine_geom" type="mesh" mesh="moving_tine_mesh" 
+                material="tine_moving"/>
+          <!-- Contact site at the tip -->
+          <site name="moving_tip" pos="-0.078 -0.020 0.014" size="0.003" 
+                rgba="0.3 1 0.3 0.8"/>
+        </body>
+      </body>
+
+      <!-- End-effector site at the grasp center -->
+      <site name="ee_site" pos="-0.02 0.0 0.0" size="0.005" 
+            rgba="0 0.5 1 0.6"/>
+    </body>
+
+    <!-- Test object: a cylinder (like a bottle from GRASSP) -->
+    <body name="test_cylinder" pos="0 0 0.20">
+      <freejoint name="cylinder_free"/>
+      <geom name="cylinder" type="cylinder" size="0.035 0.06" mass="0.3"
+            rgba="0.8 0.4 0.1 0.7"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="tine_motor" joint="tine_joint" kp="5.0" 
+              ctrlrange="-10 100"/>
+  </actuator>
+
+  <keyframe>
+    <key name="closed" qpos="0  0 0 0.20 1 0 0 0" ctrl="0"/>
+    <key name="open" qpos="60  0 0 0.20 1 0 0 0" ctrl="60"/>
+    <key name="wide_open" qpos="100  0 0 0.20 1 0 0 0" ctrl="100"/>
+  </keyframe>
+</mujoco>
