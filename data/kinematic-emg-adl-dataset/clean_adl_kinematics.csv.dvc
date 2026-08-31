@@ -1,0 +1,5 @@
+outs:
+- md5: 159f6944f48eb3300bf98cf6a425ebfe
+  size: 105045731
+  hash: md5
+  path: clean_adl_kinematics.csv

@@ -1,0 +1,4 @@
+[core]
+    remote = ubox
+['remote "ubox"']
+    url = C:\Users\TBD\Box\JAGLAB\Projects\SCI-AID\data\adl-envelopes
