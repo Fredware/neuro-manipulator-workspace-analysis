@@ -43,7 +43,7 @@ def _resolve(path: str) -> Path:
 class Paths:
     adl_csv: Path
     adl_envelopes_dir: Path
-    robot_mcjf_dir: Path
+    robot_mjcf_dir: Path
 
 @lru_cache(maxsize=1)
 def get_paths() -> Paths:
@@ -51,7 +51,7 @@ def get_paths() -> Paths:
     return Paths(
         adl_csv=_resolve(s["adl_csv"]),
         adl_envelopes_dir=_resolve(s["adl_envelopes_dir"]),
-        robot_mcjf_dir=_resolve(s["robot_mjcf_dir"]),
+        robot_mjcf_dir=_resolve(s["robot_mjcf_dir"]),
     )
 
 # --- ADL Envelope ---

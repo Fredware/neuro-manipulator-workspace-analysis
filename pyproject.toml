@@ -28,6 +28,11 @@ ada-assets = {path = "external/ada_assets", editable = true}
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "dvc>=3.67.1",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/modular_arm"]
 

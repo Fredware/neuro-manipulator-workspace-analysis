@@ -9,12 +9,37 @@ derived from motion-capture data and simulated in MuJoCo.
 
 - [`uv`](https://docs.astral.sh/uv/) for environment and dependency management
 - `git` (the `ada_assets` wheelchair + human models are a submodule)
+- `dvc` for large-file versioning (installed as a dev dependency)
+- Access to the project's UBox DVC remote (for `clean_adl_kinematics.csv`)
 
 ## Installation
+### Fresh-clone setup
 
 ```bash
+git clone <repo-url> && cd neuro-manipulator-workspace-analysis
 git submodule update --init      # pull ada_assets (Permobil wheelchair + seated human)
 uv sync                          # create the venv and install all dependencies
+
+# Configure DVC remote for your machine (path is machine-specific, gitignored)
+uv run dvc remote modify --local ubox "<this machine's Box sync path>/neuro-manipulator-dvc"
+uv run dvc pull                                      # clean_adl_kinematics.csv from UBox
+
+# Rebuild derived artifacts from the CSV (no MATLAB needed)
+uv run python -m modular_arm.analysis.adl_envelope_generator --export-stl
+uv run python -m modular_arm.robot.arm_assembler --mode both
+```
+
+### If DVC remote not available, regenerate artifacts from raw kinematic data:
+```bash
+# Fetch raw .mat files from Figshare
+uv run python scripts/fetch_data.py data/external/kinematic-emg.yaml
+
+# Export kinematic CSV from the .mat files
+uv run python scripts/export_kinematics.py data/kinematic-emg-adl-dataset/
+
+# Rebuild artifacts
+uv run python -m modular_arm.analysis.adl_envelope_generator --export-stl
+uv run python -m modular_arm.robot.arm_assembler --mode both
 ```
 
 `uv run <cmd>` auto-syncs before running, so after the initial `uv sync` you can just
@@ -24,14 +49,28 @@ use `uv run ...` for everything below. All commands are run from the repository 
 
 Dependencies flow downward toward `core`; nothing in `core` imports upward.
 
-| Package          | Responsibility                                                        |
-|------------------|-----------------------------------------------------------------------|
-| `core`           | Foundational config loading and coordinate-frame conventions          |
-| `robot`          | The physical arm model: SEA modules, MJCF assembler, robot config     |
-| `scene`          | Integration: arm + wheelchair + seated human composed into one scene  |
-| `analysis`       | Produces results/data: envelope generation, Monte Carlo, optimization |
-| `control`        | Controllers and interactive joint-sweep inspection                    |
-| `visualization`  | Matplotlib plotters for envelopes and workspace clouds                |
+| Package         | Responsibility                                                              |
+|-----------------|-----------------------------------------------------------------------------|
+| `core`          | Config loading (`config.py`) and coordinate-frame conventions (`frames.py`) |
+| `robot`         | The physical arm model: SEA modules, MJCF assembler, robot config           |
+| `scene`         | Integration: arm + wheelchair + seated human composed into one scene        |
+| `analysis`      | Produces results/data: envelope generation, Monte Carlo, optimization       |
+| `control`       | Controllers and interactive joint-sweep inspection                          |
+| `visualization` | Matplotlib plotters for envelopes and workspace clouds                      |
+
+## Data Provenance
+Version Control Strategies
+
+| Asset                              | Mechanism           | Reason                        |
+|------------------------------------|---------------------|-------------------------------|
+| `ada_assets`                       | git submodule       | independent repo              |
+| `assets/etd2`                      | git LFS             | small meshes (~3 MB)          |
+| `clean_adl_kinematics.csv`         | DVC pointer to UBox | derived from Figshare dataset |
+| `.mat` Figshare files              | fetch-by-manifest   | Hosted externally, has a DOI  |
+| ADL hulls, STLs, MJCFs, MC results | gitignored          | regenerated from the pipeline |
+| Solidworks/STEP CAD files          | DVC UBox            |                               |
+
+
 
 ## Pipeline
 
@@ -49,7 +88,8 @@ uv run python -m modular_arm.analysis.adl_envelope_generator --export-stl --stl-
 Edit the centralized robot definition (link lengths, masses, joint ranges):
 
 ```
-src/modular_arm/robot/robot_config.py
+src/modular_arm/robot/robot_config.py   # structural_definition
+config.yaml                             # tunable lengths
 ```
 
 ### 3. Generate the robot MJCF (component + full scene)
@@ -65,7 +105,7 @@ Steps through discrete joint angles to verify assembly, coordinate frames, and
 clearance; the scene assembler can also overlay the ADL hulls.
 
 ```bash
-uv run python -m modular_arm.control.configuration_designer
+uv run python -m modular_arm.control.joint_sweep_verification
 uv run python -m modular_arm.scene.assemble_scene
 uv run python -m modular_arm.scene.assemble_scene --with-adl-hulls
 ```
@@ -94,6 +134,11 @@ uv run python -m modular_arm.analysis.optimize_link_lengths --maxiter 150 --work
 ### 7. Visualize results
 
 ```bash
-uv run python -m modular_arm.visualization.visualize_envelope    # workspace cloud vs ADL zones
+uv run python -m modular_arm.visualization.plot_arm_envelope    # workspace cloud vs ADL zones
 uv run python -m modular_arm.visualization.plot_adl_hulls_3d      # HS vs ST envelope comparison
 ```
+## External Data
+The kinematic dataset is from Lucchetti et al. 2025.
+>>> Lucchetti, F., Bailo, G., & Lencioni, T. A Detailed Kinematic and EMG Dataset for Upper Limb and Hand Movement Analysis in Post-Stroke and Healthy Subjects During Functional Daily Tasks. Scientific Data 12:1904. DOI: 10.6084/m9.figshare.c.7720187.v1
+
+The manifest at `data/external/kinematic-emg.yaml` pins the collection version and `scripts/fetch_data.py` handles the download. `scripts/export_kinematics.py` replaces the original MATLAB export with a pure-Python pipeline.

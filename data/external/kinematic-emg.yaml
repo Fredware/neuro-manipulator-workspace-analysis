@@ -1,0 +1,8 @@
+name: kinematic-emg-adl-dataset
+source: figshare
+collection_id: 7720187
+version: 1
+doi: "10.6084/m9.figshare.c.7720187.v1"
+url: "https://figshare.com/collections/A_Detailed_Kinematic_and_EMG_Dataset_for_Upper_Limb_and_Hand_Movement_Analysis_in_Post-Stroke_and_Healthy_Subjects_During_Functional_Daily_Tasks/7720187/1"
+dest_dir: "data/kinematic-emg-adl-dataset"
+

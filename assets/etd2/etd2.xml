@@ -6,7 +6,7 @@
     <global offwidth="1280" offheight="960"/>
   </visual>
 
-  <option integrator="RK4" timestep="0.002">
+  <option integrator="implicitfast" timestep="0.0005">
     <flag energy="enable"/>
   </option>
 
@@ -41,39 +41,42 @@
     <body name="etd2_base" pos="0 0 0.15">
       <!-- Mounting shaft (simplified as cylinder) -->
       <geom name="shaft" type="cylinder" size="0.00675 0.052" 
-            pos="0.031 0.003 -0.003" rgba="0.3 0.3 0.33 1"/>
+            pos="-0.015 0.00 0.00" rgba="0.3 0.3 0.33 1"/>
       
       <!-- Housing body -->
-      <geom name="housing" type="mesh" mesh="housing_mesh" 
+      <!--geom name="housing" type="mesh" mesh="housing_mesh"
+            material="housing_mat" contype="0" conaffinity="0"/-->
+      <geom name="housing" type="box" size="0.02 0.02 0.03"
+            pos="0.01 0 -0.005"
             material="housing_mat" contype="0" conaffinity="0"/>
 
       <!-- Fixed tine (no joint — rigidly attached to housing) -->
-      <body name="fixed_tine" pos="0 0 0">
+      <body name="fixed_tine" pos="0.07 0 0">
         <geom name="fixed_tine_geom" type="mesh" mesh="fixed_tine_mesh" 
               material="tine_fixed"/>
         <!-- Contact site at the tip for grasp detection -->
-        <site name="fixed_tip" pos="-0.062 -0.010 -0.017" size="0.003" 
+        <site name="fixed_tip" pos="0.024 0.035 -0.005" size="0.003"
               rgba="1 0.3 0.3 0.8"/>
       </body>
 
       <!-- Moving tine (revolute joint around Y axis at pivot) -->
       <!-- Pivot estimated at (31.4, 3.1, -2.6) mm = (0.0314, 0.0031, -0.0026) m -->
-      <body name="moving_tine_pivot" pos="0.0314 0.0031 -0.0026">
+      <body name="moving_tine_pivot" pos="0.00 -0.015 0.01">
         <joint name="tine_joint" type="hinge" axis="0 1 0"
                range="-10 100" ref="0"
                damping="0.1" stiffness="2.0"/>
-        <body name="moving_tine" pos="-0.0314 -0.0031 0.0026">
+        <body name="moving_tine" pos="0.07 0.015 -0.0175">
           <!-- Offset back so the mesh stays in its original frame -->
           <geom name="moving_tine_geom" type="mesh" mesh="moving_tine_mesh" 
                 material="tine_moving"/>
           <!-- Contact site at the tip -->
-          <site name="moving_tip" pos="-0.078 -0.020 0.014" size="0.003" 
-                rgba="0.3 1 0.3 0.8"/>
+          <site name="moving_tip" pos="0.0225 0.0375 0.002" size="0.003"
+                rgba="0.25 1 0.3 0.8"/>
         </body>
       </body>
 
       <!-- End-effector site at the grasp center -->
-      <site name="ee_site" pos="-0.02 0.0 0.0" size="0.005" 
+      <site name="ee_site" pos="0.07 0.005 -0.005" size="0.005"
             rgba="0 0.5 1 0.6"/>
     </body>
 

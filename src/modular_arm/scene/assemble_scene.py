@@ -234,7 +234,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    arm_xml = args.arm_xml or (get_paths().robot_mcjf_dir / "neuro_arm.xml")
+    arm_xml = args.arm_xml or (get_paths().robot_mjcf_dir / "neuro_arm.xml")
     hull_dir = args.hull_dir or get_paths().adl_envelopes_dir
     spec  = build_composite_spec(
         arm_xml,

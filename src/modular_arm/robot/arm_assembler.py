@@ -491,10 +491,14 @@ def main() -> int:
     config = get_robot_config()
     assembler: ArmAssembler = config["assembler"]
 
+    from modular_arm.core.config import get_paths
+    mjcf_dir = get_paths().robot_mjcf_dir
+    mjcf_dir.mkdir(parents=True, exist_ok=True)
+
     if args.mode in ("scene", "both"):
-        assembler.save_model(path=args.scene_out)
+        assembler.save_model(path=str(mjcf_dir / args.scene_out))
     if args.mode in ("component", "both"):
-        assembler.save_component(path=args.component_out)
+        assembler.save_component(path=str(mjcf_dir / args.component_out))
     return 0
 
 if __name__ == "__main__":
