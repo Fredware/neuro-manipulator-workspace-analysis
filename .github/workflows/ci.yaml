@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  mvp-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python
+        run: uv python install
+      - name: Install dependencies
+        run: uv sync
+      - name: Verify package imports
+        run: |
+          uv run python -c "
+          from modular_arm.core.config import get_paths, get_adl_settings, get_robot_settings, get_scene_settings
+          from modular_arm.core.frames import validate_transform, lab_to_mujoco, mujoco_to_lab
+          from modular_arm.robot.sea_module import SEAModule
+          from modular_arm.robot.arm_assembler import ArmAssembler
+          from modular_arm.robot.robot_config import get_robot_config
+          print('All package imports OK')
+          "
+      - name: Validate coordinate transforms
+        run: |
+          uv run python -c "
+          from modular_arm.core.frames import validate_transform
+          validate_transform()
+          print('LAB_TO_MUJOCO: det=+1, round-trip clean')
+          "
+      - name: Validate config sections
+        run: |
+          uv run python -c "
+          from modular_arm.core.config import get_paths, get_adl_settings, get_robot_settings, get_scene_settings, get_optimizer_settings
+          for name, fn in [('paths', get_paths), ('adl', get_adl_settings), ('robot', get_robot_settings), ('scene', get_scene_settings), ('optimizer', get_optimizer_settings)]:
+            fn()
+            print(f'{name}: OK')
+          "
+      - name: Compile robot MJCF
+        run: |
+          uv run python -c "
+          from modular_arm.robot.robot_config import get_robot_config
+          import mujoco
+          config = get_robot_config()
+          xml = config['assembler'].generate_mjcf()
+          model = mujoco.MjModel.from_xml_string(xml)
+          print(f'MJCF compiles: {model.nbody} bodies, {model.njnt} joints, {model.nu} actuators')
+          ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, 'ee_site')
+          assert ee_id >= 0, 'ee_site not found'
+          print('ee_site present')
+          "
+
