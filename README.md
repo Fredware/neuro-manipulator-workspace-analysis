@@ -139,6 +139,6 @@ uv run python -m modular_arm.visualization.plot_adl_hulls_3d      # HS vs ST env
 ```
 ## External Data
 The kinematic dataset is from Lucchetti et al. 2025.
->>> Lucchetti, F., Bailo, G., & Lencioni, T. A Detailed Kinematic and EMG Dataset for Upper Limb and Hand Movement Analysis in Post-Stroke and Healthy Subjects During Functional Daily Tasks. Scientific Data 12:1904. DOI: 10.6084/m9.figshare.c.7720187.v1
+> Lucchetti, F., Bailo, G., & Lencioni, T. A Detailed Kinematic and EMG Dataset for Upper Limb and Hand Movement Analysis in Post-Stroke and Healthy Subjects During Functional Daily Tasks. Scientific Data 12:1904. DOI: 10.6084/m9.figshare.c.7720187.v1
 
 The manifest at `data/external/kinematic-emg.yaml` pins the collection version and `scripts/fetch_data.py` handles the download. `scripts/export_kinematics.py` replaces the original MATLAB export with a pure-Python pipeline.
